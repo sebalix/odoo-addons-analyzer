@@ -7,6 +7,8 @@ import pathlib
 
 import pygount
 
+from .code import PyFile
+
 
 class ModuleAnalysis:
     def __init__(
@@ -19,6 +21,7 @@ class ModuleAnalysis:
         self.languages = languages
         self.repo_analysis = repo_analysis
         self.summary = pygount.ProjectSummary()
+        self.models = {}
         self._run()
 
     @property
@@ -48,16 +51,44 @@ class ModuleAnalysis:
 
     def _run(self):
         for file_path in self.file_paths:
-            source_analysis = pygount.SourceAnalysis.from_file(
-                file_path,
-                group=os.path.basename(self.folder_path),
-                encoding="utf-8",
-            )
-            self.summary.add(source_analysis)
+            self._code_stats(file_path)
+            self._list_models(file_path)
+
+    def _code_stats(self, file_path):
+        source_analysis = pygount.SourceAnalysis.from_file(
+            file_path,
+            group=os.path.basename(self.folder_path),
+            encoding="utf-8",
+        )
+        self.summary.add(source_analysis)
+
+    def _list_models(self, file_path):
+        try:
+            pyfile = PyFile(file_path)
+        except ValueError:
+            return
+        data = pyfile.to_dict()
+        for model in data["models"].values():
+            key = model.get("name") or model.get("inherit")
+            if key not in self.models:
+                self.models.setdefault(key, {}).update(model)
+            else:
+                if model.get("fields"):
+                    self.models[key].setdefault("fields", {}).update(
+                        model["fields"]
+                    )
+                if model.get("methods"):
+                    self.models[key].setdefault("methods", {}).update(
+                        model["methods"]
+                    )
 
     def to_dict(self):
         summaries = dict.fromkeys(self.languages, 0)
-        data = {"code": summaries, "manifest": self.manifest}
+        data = {
+            "code": summaries,
+            "manifest": self.manifest,
+            "models": self.models,
+        }
         for summary in self.summary.language_to_language_summary_map.values():
             for language in self.languages:
                 if not summary.language.startswith(language):
