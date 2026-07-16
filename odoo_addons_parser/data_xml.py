@@ -414,4 +414,5 @@ IGNORED_TAGS = [
     "delete",
     "function",
     "assert",  # Odoo <= 12.0, old way of writing tests
+    "xpath",  # OCA/OpenUpgrade#19.0 using it in noupdate.xml files
 ]
